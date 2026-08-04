@@ -1,8 +1,19 @@
-.venv/
+# Python
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
+
+# Virtual environments
+.venv/
+venv/
+
+# Local logs
 logs/
+
+# Recordings
 *.gif
+
+# Trained RL model (large binary)
 *.pt
+rl_model.pt.tmp.*
