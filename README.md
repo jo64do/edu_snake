@@ -110,4 +110,8 @@ The rewards that the agent receives when interacting with the environment are cr
 
 ## License
 
-See the [LICENSE](./LICENSE) file for license rights and limitations.
+See the [LICENSE](LICENSE) file for license rights and limitations.
+
+---
+
+> 🇷🇺 **Русская версия**: ознакомьтесь с [README_RUS.md](README_RUS.md) для русскоязычной документации.
