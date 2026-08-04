@@ -1,6 +1,6 @@
 ## PyGame — детальный обзор использования в проекте Snake
 
-<FILE>/home/jk/mSr/heRmm/snake/src/game.py</FILE>
+<FILE>./snake/src/game.py</FILE>
 
 ```python
 import os
