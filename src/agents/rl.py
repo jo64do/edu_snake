@@ -15,6 +15,9 @@ from src.direc import Direction
 from src.snake import Snake
 
 
+# Параметры обучения и инференса RL-агента.
+# Здесь задаются пути к модели, размеры сетки состояний,
+# количество шагов, скорость обучения и правила наград.
 class RLParams:
     MODEL_PATH: str = os.path.join(".", "rl_model.pt")
 
@@ -47,6 +50,9 @@ class RLParams:
     MAX_GRAD_NORM: float = 10.0
 
 
+# Нейросеть агента: сначала сверточные слои по полю,
+# затем соединение с дополнительными признаками и линейный выход
+# для трёх возможных действий.
 class RLNet(torch.nn.Module):
     def __init__(self) -> None:
         super().__init__()
@@ -68,13 +74,15 @@ class RLNet(torch.nn.Module):
             torch.nn.Linear(128, RLParams.NUM_ACTIONS),
         )
 
+    # Прямой проход сети: состояние преобразуется из одномерного тензора
+    # в четыре канала сетки + вектор дополнительных признаков.
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         grid_len = RLParams.NUM_GRID_CHANNELS * Config.GRID_SIZE * Config.GRID_SIZE
 
-        if x.dim() == 1:  # single state for inference
+        if x.dim() == 1:  # одиночное состояние для инференса
             x = x.unsqueeze(0)
             squeeze = True
-        else:  # batch of states for learning
+        else:  # пакет состояний для обучения
             squeeze = False
 
         grid_flat = x[:, :grid_len]
@@ -99,6 +107,8 @@ class RLNet(torch.nn.Module):
         return q_vals
 
 
+# Элемент опыта обучения: переход состояния в следующее состояние
+# с конкретным действием и полученной наградой.
 class RLExperience:
     def __init__(
         self,
@@ -137,6 +147,8 @@ class RLExperience:
         return states, actions, rewards, next_states, done_vals
 
 
+# RL-агент использует Double DQN: выбирает действие по политике,
+# а для обучения использует отдельную target-сеть для стабильности.
 class RLAgent(Agent):
     def __init__(self):
         self.rand: random.Random = random.Random()
@@ -145,6 +157,8 @@ class RLAgent(Agent):
         self.steps_without_food: int
         self.prev_len: int
 
+    # Инференс: из текущего состояния выбирается одно из трёх действий
+    # и оно конвертируется в направление движения змейки.
     def next_direc(self, snake: Snake) -> Direction:
         if self.eval_net is None:
             self.eval_net = self.new_eval_net()
@@ -237,6 +251,8 @@ class RLAgent(Agent):
             Config.INIT_SNAKE_FOOD,
         )
 
+    # Превращает текущее состояние змейки в входной тензор для нейросети.
+    # Он состоит из 4 каналов поля и 9 дополнительных признаков.
     def state(self, snake: Snake) -> torch.Tensor:
         food_ch = torch.zeros(Config.GRID_SIZE, Config.GRID_SIZE)
         body_ch = torch.zeros(Config.GRID_SIZE, Config.GRID_SIZE)
@@ -251,7 +267,7 @@ class RLAgent(Agent):
                 if val == CellValue.FOOD.value:
                     food_ch[row][col] = 1.0
                 elif val > 0:
-                    body_ch[row][col] = val / snake_len  # normalize by length
+                    body_ch[row][col] = val / snake_len  # нормализация по длине
                     if val == 1:
                         head_ch[row][col] = 1.0
                     if val != snake_len:
@@ -269,19 +285,21 @@ class RLAgent(Agent):
             dr = snake.food.row - head.row
             dc = snake.food.col - head.col
             if dr < 0:
-                food_direc_vec[0] = 1.0  # food is up
+                food_direc_vec[0] = 1.0  # еда выше
             if dc < 0:
-                food_direc_vec[1] = 1.0  # food is left
+                food_direc_vec[1] = 1.0  # еда слева
             if dr > 0:
-                food_direc_vec[2] = 1.0  # food is down
+                food_direc_vec[2] = 1.0  # еда ниже
             if dc > 0:
-                food_direc_vec[3] = 1.0  # food is right
-            # Manhattan distance normalized by max distance
+                food_direc_vec[3] = 1.0  # еда справа
+            # манхэттенское расстояние нормализовано по максимальному значению
             food_dist_vec[0] = (abs(dr) + abs(dc)) / (2 * snake.grid_size)
 
         extra = torch.cat((snake_direc_vec, food_direc_vec, food_dist_vec))
         return torch.cat((grid_channels.flatten(), extra))
 
+    # Выбирает действие: либо максимум Q-значений, либо случайное действие
+    # при исследовании в процессе обучения.
     def action(
         self,
         q_vals: torch.Tensor,
@@ -291,6 +309,8 @@ class RLAgent(Agent):
             return torch.randint(0, q_vals.shape[-1], (1,)).item()
         return q_vals.argmax().item()
 
+    # Выполняет один шаг в симуляции и возвращает следующее состояние,
+    # награду и флаг завершения эпизода.
     def move(
         self,
         snake: Snake,
@@ -318,18 +338,23 @@ class RLAgent(Agent):
 
         return next_state, reward, done
 
+    # Переводит внутреннее действие агента в одно из трёх допустимых
+    # направлений относительно текущего движения змейки.
     def action_to_direc(self, action: torch.types.Number, snake: Snake) -> Direction:
         if action == 0:
-            return snake.direc  # go straight
+            return snake.direc  # идти прямо
         if action == 1:
-            return snake.direc.left()  # turn left
+            return snake.direc.left()  # повернуть влево
         if action == 2:
-            return snake.direc.right()  # turn right
+            return snake.direc.right()  # повернуть вправо
         assert False, f"Unexpected action {action}"
 
+    # Ограничение на время без еды: если агент долго не находит пищу,
+    # эпизод принудительно завершаеться, чтобы не застревать в петле.
     def timeout_steps(self, snake: Snake) -> int:
         return RLParams.MAX_STEPS_WITHOUT_FOOD_BEFORE_STOP + snake.len()
 
+    # Определяет, пора ли обучаться на текущей мини-порции опыта.
     def should_learn(self, step: int, mem: Sequence[RLExperience]) -> bool:
         # fmt: off
         return (
@@ -338,6 +363,8 @@ class RLAgent(Agent):
         )
         # fmt: on
 
+    # Линейно уменьшает epsilon со временем, чтобы сначала исследовать,
+    # а затем всё чаще выбирать лучший известный вариант.
     def next_epsilon(self, episode: int) -> float:
         linear_decay = (
             episode
@@ -349,6 +376,8 @@ class RLAgent(Agent):
             RLParams.EPSILON_INIT - linear_decay,
         )
 
+    # Один шаг обучения: вычисление функции потерь, обратного распространения
+    # и мягкая синхронизация целевой сети с основной сетью.
     def learn(
         self,
         experiences: Iterable[RLExperience],
@@ -366,6 +395,8 @@ class RLAgent(Agent):
         optimizer.step()
         self.soft_update(q_net, q_net_target)
 
+    # Вычисляет целевые Q-значения по Double DQN и сравнивает их с текущими
+    # предсказаниями сети через сглаженную функцию потерь Smooth L1.
     def loss(
         self,
         experiences: Iterable[RLExperience],
@@ -390,6 +421,7 @@ class RLAgent(Agent):
 
         return torch.nn.functional.smooth_l1_loss(q_vals, y_targets)
 
+    # Мягкое обновление target-сети для стабильного обучения.
     def soft_update(self, q_net: RLNet, q_net_target: RLNet) -> None:
         for q_net_params, target_params in zip(
             q_net.parameters(),
@@ -400,12 +432,14 @@ class RLAgent(Agent):
                 + (1.0 - RLParams.UPDATE_RATE) * target_params.data
             )
 
+    # Сохраняет обученную сеть в файл модели с временной меткой.
     def save(self, net: RLNet) -> None:
         ts = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
         path = RLParams.MODEL_PATH + f".tmp.{ts}"
         torch.save(net.state_dict(), path)
         print(f"Model saved to {path}")
 
+    # Выводит информацию о размере модели в консоль для отладки обучения.
     def print_model_info(self, net: RLNet) -> None:
         num_params = 0
         num_bytes = 0
