@@ -1,5 +1,10 @@
 # Snake
 
+
+> 🇷🇺 **Русская версия**: ознакомьтесь с [README_RUS.md](README_RUS.md) для русскоязычной документации.
+
+---
+
 This project implements two AI algorithms to play the game of [snake](https://en.wikipedia.org/wiki/Snake_(video_game_genre)):
 
 | Algorithm | Example | Average Length* | Success Rate* |
@@ -113,5 +118,3 @@ The rewards that the agent receives when interacting with the environment are cr
 See the [LICENSE](LICENSE) file for license rights and limitations.
 
 ---
-
-> 🇷🇺 **Русская версия**: ознакомьтесь с [README_RUS.md](README_RUS.md) для русскоязычной документации.
