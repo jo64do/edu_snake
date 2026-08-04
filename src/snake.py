@@ -9,7 +9,11 @@ from src.direc import Direction
 from src.pos import Pos
 
 
+# Класс змейки — сердце игровой логики.
+# Хранит координаты тела, текущее состояние, направление,
+# положение еды и вычисляемую внутреннюю сетку поля.
 class Snake:
+    # Возможные состояния змейки на каждом шаге игры.
     class State(Enum):
         WALKING = auto()
         DEAD = auto()
@@ -42,6 +46,7 @@ class Snake:
         ]
         self.refresh_grid()
 
+    # Перестраивает числовую сетку поля из текущего состояния змейки.
     def refresh_grid(self) -> None:
         for row in range(self.grid_size):
             for col in range(self.grid_size):
@@ -51,6 +56,7 @@ class Snake:
                 self.grid[pos.row][pos.col] = i + 1
         self.refresh_food(self.food)
 
+    # Создаёт копию текущего состояния змейки для безопасного анализа альтернатив.
     def copy(self) -> "Snake":
         return Snake(
             self.grid_size,
@@ -61,23 +67,25 @@ class Snake:
             self.rand_seed,
         )
 
+    # Выполняет один шаг движения змейки в выбранную сторону.
+    # Если новый ход противоположен текущему, движение игнорируется.
     def move(self, new_direc: Direction) -> None:
         if self.direc.is_opposite(new_direc):
-            return  # snake can't move opposite to current direction
+            return  # змея не может двигаться в противоположную сторону
 
         new_head = self.new_head(new_direc)
         will_grow = self.will_grow(new_head)
         will_die = self.will_die(new_head)
 
-        # update old head
+        # обновляем старую голову
         self.cells[-1] = self.old_head_cell_after_move(new_direc)
 
-        # update new head
+        # обновляем новую голову
         new_head_cell = self.new_head_cell_after_move(new_direc)
         self.cells.append(new_head_cell)
         self.coords.append(new_head)
 
-        # update tail and food
+        # обновляем хвост и еду
         if will_grow:
             self.new_food()
         else:
@@ -93,21 +101,25 @@ class Snake:
         self.refresh_grid()
         self.direc = new_direc
 
+    # Возвращает координату новой головы после предполагаемого хода.
     def new_head(self, new_direc: Direction) -> Pos:
         return self.head().adj(new_direc)
 
+    # Проверяет, съест ли змея еду на следующем шаге.
     def will_grow(self, new_head: Pos) -> bool:
         return not self.is_out_of_bound(new_head) and self.is_food(new_head)
 
+    # Проверяет, погибнет ли змея после хода в new_head.
     def will_die(self, new_head: Pos) -> bool:
         # fmt: off
         return (
             self.is_out_of_bound(new_head)
-            # moving to tail is allowed
+            # движение в хвост разрешено
             or (self.is_snake(new_head) and not self.is_tail(new_head))
         )
         # fmt: on
 
+    # Возвращает тип старой головы после поворота, чтобы правильно отрисовать изгиб тела.
     def old_head_cell_after_move(self, new_direc: Direction) -> CellType:
         if self.direc == Direction.UP:
             if new_direc == Direction.UP:
@@ -139,6 +151,7 @@ class Snake:
                 return CellType.BODY_HORZ
         assert False, f"Unexpected direction from {self.direc} to {new_direc}"
 
+    # Возвращает тип клетки для новой головы в зависимости от направления движения.
     def new_head_cell_after_move(self, new_direc: Direction) -> CellType:
         if new_direc == Direction.UP:
             return CellType.HEAD_UP
@@ -150,6 +163,7 @@ class Snake:
             return CellType.HEAD_RIGHT
         assert False, f"Unexpected direction {new_direc}"
 
+    # Генерирует новую еду в случайной пустой клетке игрового поля.
     def new_food(self) -> None:
         empty: list[Pos] = []
         for row in range(self.grid_size):
@@ -158,11 +172,13 @@ class Snake:
                     empty.append(Pos(row, col))
         self.refresh_food(self.rand.choice(empty) if empty else None)
 
+    # Привязывает еду к конкретной клетке и помечает её в сетке специальным значением.
     def refresh_food(self, pos: Pos | None) -> None:
         self.food = pos
         if pos:
             self.grid[pos.row][pos.col] = CellValue.FOOD.value
 
+    # Проверяет, заполнено ли всё игровое поле змейкой.
     def max_len_reached(self) -> bool:
         return self.len() >= self.grid_size**2
 

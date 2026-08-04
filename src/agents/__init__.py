@@ -2,6 +2,7 @@ from src.agents.base import Agent
 from src.mode import Mode
 
 
+# Фабрика агентов: создаёт нужную реализацию по выбранному режиму игры.
 def init_agent(mode: Mode) -> Agent | None:
     if mode == Mode.GRAPH:
         from src.agents.graph import GraphAgent

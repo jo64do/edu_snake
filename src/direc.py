@@ -1,12 +1,15 @@
 from enum import Enum
 
 
+# Перечисление возможных направлений движения змейки.
+# Каждое направление хранит смещение по строке и столбцу на сетке.
 class Direction(Enum):
     UP = (-1, 0)
     LEFT = (0, -1)
     DOWN = (1, 0)
     RIGHT = (0, 1)
 
+    # Проверяет, является ли переданное направление противоположным текущему.
     def is_opposite(self, other: "Direction") -> bool:
         if self == Direction.UP and other == Direction.DOWN:
             return True
@@ -18,6 +21,7 @@ class Direction(Enum):
             return True
         return False
 
+    # Возвращает направление, обратное текущему.
     def opposite(self) -> "Direction":
         if self == Direction.UP:
             return Direction.DOWN
@@ -29,6 +33,7 @@ class Direction(Enum):
             return Direction.LEFT
         assert False, "Invalid direction"
 
+    # Возвращает направление после поворота налево.
     def left(self) -> "Direction":
         if self == Direction.UP:
             return Direction.LEFT
@@ -40,6 +45,7 @@ class Direction(Enum):
             return Direction.UP
         assert False, "Invalid direction"
 
+    # Возвращает направление после поворота направо.
     def right(self) -> "Direction":
         if self == Direction.UP:
             return Direction.RIGHT
@@ -51,6 +57,7 @@ class Direction(Enum):
             return Direction.DOWN
         assert False, "Invalid direction"
 
+    # Возвращает индекс направления для удобного представления состояния в RL.
     def index(self) -> int:
         if self == Direction.UP:
             return 0

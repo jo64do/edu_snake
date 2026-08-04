@@ -1,11 +1,15 @@
 from enum import Enum, auto
 
 
+# Числовые значения, которые можно хранить в внутренней сетке.
+# EMPTY = 0 означает пустую клетку, FOOD = -1 — клетку с едой.
 class CellValue(Enum):
     EMPTY = 0
     FOOD = -1
 
 
+# Типы клеток для визуальной отрисовки.
+# Каждый элемент описывает, какой именно кусок тела или голову нужно отрисовать.
 class CellType(Enum):
     EMPTY = auto()
     FOOD = auto()
@@ -21,6 +25,7 @@ class CellType(Enum):
     BODY_TURN_DR = auto()
 
 
+# Цвета, используемые при рисовании окна и элементов игры.
 class CellColor(Enum):
     BACKGROUND = (33, 33, 33)
     GRID_LINE = (97, 97, 97)

@@ -5,10 +5,18 @@ from src.game import Game
 from src.mode import Mode
 
 
+# Точка входа в приложение: сначала читаются параметры запуска,
+# затем выбирается режим игры и выполняется либо игровой цикл,
+# либо запуск бенчмарка.
 def main() -> None:
+    # Получаем аргументы командной строки из терминала.
     args = parse_args()
+
+    # Преобразуем строковый режим в перечисление Mode.
     mode = Mode[args.mode.upper()]
 
+    # Если количество раундов для бенчмарка не задано,
+    # запускаем обычную игру; иначе запускаем бенчмарк.
     if args.bench_rounds is None:
         game = Game(mode, args.move_freq, args.show_grid, args.record_frames, args.seed)
         game.loop()
@@ -16,9 +24,19 @@ def main() -> None:
         run_bench(mode, args.bench_rounds, args.seed)
 
 
+# Настройка и разбор аргументов командной строки.
 def parse_args() -> argparse.Namespace:
+    # Создаём объект для обработки переданных параметров.
     parser = argparse.ArgumentParser()
 
+    # Выбор режима игры: человек, графический агент или RL-агент.
+    # За что отвечает каждый флаг (-m, -f, -g, -r, -s, -b):
+    #   -m: режим игры
+    #   -f: частота обновления движения змейки
+    #   -g: показывать сетку
+    #   -r: записывать кадры
+    #   -s: зерно генератора случайных чисел
+    #   -b: количество раундов для бенчмарка
     parser.add_argument(
         "-m",
         choices=["human", "graph", "rl"],
@@ -28,6 +46,7 @@ def parse_args() -> argparse.Namespace:
         dest="mode",
     )
 
+    # Частота обновления движения змейки в миллисекундах.
     parser.add_argument(
         "-f",
         metavar="<freq>",
@@ -37,6 +56,7 @@ def parse_args() -> argparse.Namespace:
         dest="move_freq",
     )
 
+    # Показывать ли сетку на игровом поле.
     parser.add_argument(
         "-g",
         help="show grid lines",
@@ -44,6 +64,7 @@ def parse_args() -> argparse.Namespace:
         dest="show_grid",
     )
 
+    # Включить запись игрового процесса в видео/кадры.
     parser.add_argument(
         "-r",
         help="record game play",
@@ -51,6 +72,7 @@ def parse_args() -> argparse.Namespace:
         dest="record_frames",
     )
 
+    # Значение зерна генератора случайных чисел для воспроизводимости.
     parser.add_argument(
         "-s",
         metavar="<seed>",
@@ -60,6 +82,7 @@ def parse_args() -> argparse.Namespace:
         dest="seed",
     )
 
+    # Количество раундов для запуска бенчмарка.
     parser.add_argument(
         "-b",
         metavar="<rounds>",
@@ -69,8 +92,10 @@ def parse_args() -> argparse.Namespace:
         dest="bench_rounds",
     )
 
+    # Возвращаем собранные значения аргументов.
     return parser.parse_args()
 
 
+# Защита от автоматического запуска при импорте файла.
 if __name__ == "__main__":
     main()

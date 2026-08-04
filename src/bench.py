@@ -6,12 +6,15 @@ from src.mode import Mode
 from src.snake import Snake
 
 
+# Бенчмарк прогоняет несколько раундов агентом и печатает статистику.
+# Это удобно для оценки устойчивости графового и RL-подхода на одинаковых условиях.
 def run_bench(
     mode: Mode,
     num_rounds: int,
     rand_seed: int | None = None,
     max_steps: int = 1000,
 ) -> None:
+    # Ручной режим не поддерживает бенчмарк, потому что там нет агента.
     if mode == Mode.HUMAN:
         print(f"Benchmark is not supported for {mode.name} mode")
         return
@@ -19,6 +22,7 @@ def run_bench(
         print("Number of benchmark rounds must be positive")
         return
 
+    # Создаём агента в зависимости от выбранного режима и запускаем несколько игр.
     agent = init_agent(mode)
     assert agent is not None
 
@@ -65,6 +69,7 @@ def run_bench(
     )
 
 
+# Выводит краткую статистику по одному раунду бенчмарка.
 def print_round_stats(
     mode: Mode,
     round: int,
@@ -86,6 +91,8 @@ def print_round_stats(
     )
 
 
+# Сводит всю историю раундов в одну итоговую таблицу с минимумом,
+# максимумом и средней статистикой по времени, шагам и длине змеи.
 def print_summary(
     num_rounds: int,
     history_seeds: list[int],
@@ -128,6 +135,7 @@ def print_summary(
     print(f"Success Rate : {suc_rate:>4.2f}%")
 
 
+# Вспомогательный форматтер для красивой печати строки сводки.
 def print_summary_stats(
     type: str,
     time: float,

@@ -7,6 +7,10 @@ from src.pos import Pos
 from src.snake import Snake
 
 
+# Графовый агент выбирает следующий ход через поиск путей на сетке.
+# Он сначала пытается построить безопасный цикл по всей доске,
+# затем ищет кратчайший путь к еде и только после этого откладывает
+# действия, если безопасный путь к еде невозможен.
 class GraphAgent(Agent):
     HAMILTON_SEARCH_LIMIT: int = 10_000
     HAMILTON_THRESHOLD: int = 16
@@ -19,11 +23,15 @@ class GraphAgent(Agent):
         self.hamilton_search_count: int
         self.reset()
 
+    # Сбрасывает внутреннее состояние агента при смене текущей игры.
     def reset(self, snake: Snake | None = None) -> None:
         self.snake = snake
         self.hamilton_index = []
         self.hamilton_search_count = 0
 
+    # Основной выбор хода агента: сначала проверка тупика,
+    # затем безопасный гамильтонов цикл, потом путь к еде и, в конце,
+    # обходные шаги для освобождения пространства.
     def next_direc(self, snake: Snake) -> Direction:
         if self.snake != snake:
             self.reset(snake)
@@ -33,44 +41,45 @@ class GraphAgent(Agent):
 
         neighbors = self.neighbors(snake.head(), snake, set())
         if not neighbors:
-            # snake is trapped, move in current direction to end the game
+            # змея застряла, движемся в текущем направлении, чтобы завершить игру
             return snake.direc
 
-        # follow hamiltonian cycle if exists
+        # если существует гамильтонов цикл, следуем ему
         if self.hamilton_index:
             return self.hamilton_direc(neighbors, snake)
 
-        # try building hamiltonian cycle if snake is long enough
+        # пытаемся построить гамильтонов цикл, если змея достаточно длинная
         if snake.len() >= GraphAgent.HAMILTON_THRESHOLD:
             path_to_tail = self.hamilton_path(snake.tail(), snake)
             if path_to_tail:
                 self.build_hamilton_index(path_to_tail, snake)
                 return self.hamilton_direc(neighbors, snake)
 
-        # search shortest path to food
+        # ищем кратчайший путь к еде
         path_to_food = self.shortest_path(food, snake)
         if path_to_food:
-            # try moving the snake along the shortest path to eat the food
+            # пытаемся провести змею по кратчайшему пути, чтобы съесть еду
             snake_copy = snake.copy()
             for direc in path_to_food:
                 snake_copy.move(direc)
             path_to_tail = self.shortest_path(snake_copy.tail(), snake_copy)
-            # if after eating the food the snake can still reach its tail, follow the path to food
+            # если после поедания еды змея всё ещё может достичь хвоста, следуем пути к еде
             if path_to_tail:
                 return path_to_food[0]
 
-        # no safe path to food, try moving along a longer path to tail
+        # безопасного пути к еде нет, пробуем двигаться по более длинному пути к хвосту
         path_to_tail = self.longer_path(snake.tail(), snake)
         if path_to_tail:
             return path_to_tail[0]
 
-        # no path to tail either, just move further away from the food
+        # пути к хвосту тоже нет, просто уводим голову дальше от еды
         neighbors.sort(
             key=lambda x: self.manhattan_dist(x[1], food),
             reverse=True,
         )
         return neighbors[0][0]
 
+    # Находит кратчайший путь по направлению от головы к цели через BFS.
     def shortest_path(self, dst: Pos, snake: Snake) -> list[Direction]:
         src = snake.head()
         visited = {src}
@@ -84,8 +93,10 @@ class GraphAgent(Agent):
                 visited.add(pos)
         return []
 
+    # Строит чуть более длинный маршрут, чтобы избежать зацикливания
+    # у хвоста и дать змейке запас свободы для будущих ходов.
     def longer_path(self, dst: Pos, snake: Snake) -> list[Direction]:
-        """Build a path slightly longer than the shortest path."""
+        """Строит путь чуть длиннее кратчайшего."""
         shortest = self.shortest_path(dst, snake)
         longest: list[Direction] = []
         cur = snake.head()
@@ -106,14 +117,14 @@ class GraphAgent(Agent):
 
                 cur_extendable = (
                     self.is_reachable(cur_extended, snake)
-                    # eating the food might trap the snake, so we don't extend if there's food
+                    # поедание еды может запереть змею, поэтому не расширяем маршрут, если там есть еда
                     and not snake.is_food(cur_extended)
                 )
 
                 nxt_extendable = (
                     self.is_reachable(nxt_extended, snake)
-                    # coords[1] is the second last snake body which will become
-                    # the new tail after the move, so it's safe to extend
+                    # coords[1] — предпоследняя клетка тела, которая станет новым хвостом
+                    # после хода, поэтому расширение здесь безопасно
                     or nxt_extended == snake.coords[1]
                 )
 
@@ -131,6 +142,8 @@ class GraphAgent(Agent):
 
         return longest
 
+    # Подготавливает индекс по найденному гамильтонову пути,
+    # чтобы затем быстро выбирать следующий шаг по порядку обхода.
     def build_hamilton_index(self, path: list[Direction], snake: Snake) -> None:
         self.hamilton_index = [list(row) for row in snake.grid]
         cur = snake.head()
@@ -141,6 +154,8 @@ class GraphAgent(Agent):
             cur = nxt
             val -= 1
 
+    # Выбирает следующее направление по сохранённому порядку
+    # обхода клеток в найденном гамильтоновом цикле.
     def hamilton_direc(
         self,
         neighbors: list[tuple[Direction, Pos]],
@@ -155,6 +170,8 @@ class GraphAgent(Agent):
                 return direc
         assert False, "Invalid hamilton index"
 
+    # Ищет гамильтонов путь от головы до хвоста, если поле достаточно большое
+    # и в нём ещё существует потенциально безопасная схема обхода.
     def hamilton_path(self, dst: Pos, snake: Snake) -> list[Direction]:
         self.hamilton_search_count = 0
         src = snake.head()
@@ -165,6 +182,8 @@ class GraphAgent(Agent):
             return path
         return []
 
+    # Поиск в глубину с отсечением и эвристикой Warnsdorf для
+    # построения гамильтонова пути на маленькой сетке.
     def hamilton_backtrack(
         self,
         cur: Pos,
@@ -181,12 +200,13 @@ class GraphAgent(Agent):
             return False
         self.hamilton_search_count += 1
 
-        # explore neighbors with fewer onward moves first (Warnsdorf's heuristic)
+        # сначала исследуем соседей с меньшим числом возможных дальнейших ходов
+        # (эвристика Warnsdorf)
         neighbors = self.neighbors(cur, snake, visited)
         neighbors.sort(key=lambda x: self.hamilton_heuristic(x[1], snake, visited))
 
         for direc, nbr in neighbors:
-            # don't visit dst early unless it completes the path (pruning)
+            # не посещаем dst слишком рано, если это не завершает путь целиком (отсечение)
             if nbr == dst and len(path) < target_len - 1:
                 continue
 
@@ -218,9 +238,10 @@ class GraphAgent(Agent):
             nbr = pos.adj(direc)
             if self.is_reachable(nbr, snake) and nbr not in visited:
                 result.append((direc, nbr))
-        self.rand.shuffle(result)  # randomize to reduce bias in path selection
+        self.rand.shuffle(result)  # перемешиваем соседей, чтобы уменьшить смещение в выборе пути
         return result
 
+    # Считает, сколько клеток на поле доступны для обхода с учётом тела змеи.
     def num_reachable(self, snake: Snake) -> int:
         m, n = len(snake.grid), len(snake.grid[0])
         cnt = 0
@@ -230,6 +251,8 @@ class GraphAgent(Agent):
                     cnt += 1
         return cnt
 
+    # Проверяет, можно ли безопасно зайти в клетку: она не должна выходить
+    # за границы и не должна быть занята телом змеи, кроме хвоста.
     def is_reachable(self, pos: Pos, snake: Snake) -> bool:
         # fmt: off
         return (

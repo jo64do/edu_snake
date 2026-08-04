@@ -5,6 +5,8 @@ from src.direc import Direction
 from src.pos import Pos
 
 
+# Глобальные настройки игрового поля и визуальной части.
+# Эти константы используются в нескольких модулях, поэтому вынесены в один файл.
 class Config:
     FPS: float = 60
 

@@ -2,7 +2,7 @@ import os
 import time
 from datetime import datetime, timezone
 
-# pygame envs
+# переменные окружения pygame
 os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
 os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "1"
 import pygame
@@ -18,6 +18,8 @@ from src.pos import Pos
 from src.snake import Snake
 
 
+# Основной класс игровой сессии.
+# Он отвечает за управление Pygame, агентом, логированием и записью GIF.
 class Game:
     def __init__(
         self,
@@ -44,6 +46,7 @@ class Game:
 
         self.screen: pygame.Surface
 
+    # Сбрасывает состояние игры в исходную позицию.
     def reset(self) -> None:
         self.snake = Snake(
             Config.GRID_SIZE,
@@ -59,6 +62,7 @@ class Game:
         self.log_path_pfx = self.init_logging()
         self.frames = []
 
+    # Создаёт каталог для логов и возвращает префикс имени файла.
     def init_logging(self) -> str:
         os.makedirs(Config.LOG_DIR, exist_ok=True)
         ts = datetime.now(timezone.utc).strftime("%Y-%m-%d-%H-%M-%S")
@@ -68,6 +72,7 @@ class Game:
             f.write("-" * (Config.GRID_SIZE * 3) + "\n")
         return pfx
 
+    # Печатает подсказки управления в консоль перед стартом.
     def print_info(self) -> None:
         print("+--------------------------------+")
         print("| Esc    : Quit the game         |")
@@ -82,6 +87,7 @@ class Game:
             f"Score: {self.snake.len():>2} (length of the snake, max={Config.GRID_SIZE**2})"
         )
 
+    # Главный игровой цикл: обработка событий, движение, рисование и захват кадров.
     def loop(self) -> None:
         self.print_info()
 
@@ -100,6 +106,7 @@ class Game:
         self.save_recording()
         pygame.quit()
 
+    # Обрабатывает пользовательский ввод: выход, паузу, перезапуск, изменение направления.
     def handle_events(self) -> bool:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -122,6 +129,7 @@ class Game:
                     self.next_direc = Direction.RIGHT
         return True
 
+    # Выполняет один игровой шаг по таймеру и выбирает направление агента при необходимости.
     def move(self) -> None:
         now = time.monotonic()
         if (now - self.last_move_time) * 1000 < self.move_freq:
@@ -161,6 +169,7 @@ class Game:
         )
         # fmt: on
 
+    # Перерисовывает всё окно: фон, клеточную сетку, тело змеи и еду.
     def refresh_screen(self) -> None:
         self.screen.fill(CellColor.BACKGROUND.value)
 
@@ -178,6 +187,7 @@ class Game:
 
         pygame.display.flip()
 
+    # Универсальный метод рендера одной клетки поля.
     def draw(self, pos: Pos, cell_type: CellType) -> None:
         self.draw_empty(pos)
         if cell_type == CellType.FOOD:
@@ -185,6 +195,7 @@ class Game:
         else:
             self.draw_snake(pos, cell_type)
 
+    # Рисует пустую клетку и при необходимости сетку между ячейками.
     def draw_empty(self, pos: Pos) -> None:
         row, col = pos.row, pos.col
         x = col * Config.CELL_SIZE
@@ -194,6 +205,7 @@ class Game:
         if self.show_grid:
             pygame.draw.rect(self.screen, CellColor.GRID_LINE.value, (x, y, w, h), 1)
 
+    # Рисует еду внутри клетки в виде более маленького прямоугольника.
     def draw_food(self, pos: Pos) -> None:
         row, col = pos.row, pos.col
         x = col * Config.CELL_SIZE + Config.CELL_PADDING
@@ -201,6 +213,7 @@ class Game:
         w = h = Config.CELL_SIZE - 2 * Config.CELL_PADDING
         pygame.draw.rect(self.screen, CellColor.FOOD.value, (x, y, w, h))
 
+    # Отрисовывает сегмент змеи в зависимости от типа клетки: голова, тело, изгиб.
     def draw_snake(self, pos: Pos, cell_type: CellType) -> None:
         row, col = pos.row, pos.col
         color = self.snake_color()
@@ -263,6 +276,7 @@ class Game:
         if w * h > 0:
             pygame.draw.rect(self.screen, color, (x, y, w, h))
 
+    # Возвращает цвет змеи в зависимости от того, живёт она, погибла или достигла максимума.
     def snake_color(self) -> tuple[int, int, int]:
         if self.snake.state == Snake.State.WALKING:
             return CellColor.SNAKE_WALKING.value
@@ -272,6 +286,7 @@ class Game:
             return CellColor.SNAKE_FULL.value
         assert False, f"Unexpected snake state {self.snake.state.name}"
 
+    # Захватывает текущее состояние экрана в список кадров для последующей записи GIF.
     def capture_frame(self) -> None:
         if not self.record_frames:
             return
@@ -279,6 +294,7 @@ class Game:
         size = self.screen.get_size()
         self.frames.append(Image.frombytes("RGB", size, data))
 
+    # Сохраняет накопленные кадры в GIF-анимацию.
     def save_recording(self) -> None:
         if not self.record_frames or not self.frames:
             return
@@ -290,6 +306,7 @@ class Game:
             loop=0,
         )
 
+    # Дописывает текущее состояние сетки в лог-файл для дальнейшего анализа.
     def save_states(self) -> None:
         with open(self.log_path_pfx + Config.STATES_EXT, "a") as f:
             f.write(self.snake.serialize_states() + "\n")
